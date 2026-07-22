@@ -106,5 +106,7 @@ Route::fallback(function (Request $request) {
     return view('app',compact('title','description','image','schema')+[
         'analyticsId'=>$settings['google_analytics_id']??null,
         'favicon'=>$settings['favicon']??null,
+        'headerScripts'=>$settings['header_scripts']??null,
+        'footerScripts'=>$settings['footer_scripts']??null,
     ]);
 });

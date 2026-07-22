@@ -548,6 +548,8 @@ class AdminController extends Controller
             'meta_description'=>'nullable|string|max:1000',
             'robots'=>'nullable|string|max:255',
             'google_analytics_id'=>'nullable|string|max:80',
+            'header_scripts'=>'nullable|string|max:50000',
+            'footer_scripts'=>'nullable|string|max:50000',
             'primary_color'=>['nullable','regex:/^#[0-9A-Fa-f]{6}$/'],
             'secondary_color'=>['nullable','regex:/^#[0-9A-Fa-f]{6}$/'],
             'dark_color'=>['nullable','regex:/^#[0-9A-Fa-f]{6}$/'],
@@ -576,9 +578,15 @@ class AdminController extends Controller
             'phone'=>'contact','email'=>'contact','address'=>'contact','whatsapp'=>'contact','facebook'=>'social','instagram'=>'social','youtube'=>'social',
             'announcement'=>'homepage','hero_title'=>'homepage','hero_subtitle'=>'homepage','newsletter_title'=>'homepage','footer_text'=>'footer',
             'meta_title'=>'seo','meta_description'=>'seo','robots'=>'seo','google_analytics_id'=>'seo',
+            'header_scripts'=>'tracking','footer_scripts'=>'tracking',
         ];
         foreach($groups as $key=>$group) if(array_key_exists($key,$data)) {
-            Setting::updateOrCreate(['key'=>$key],['value'=>$data[$key],'type'=>str_ends_with($key,'_color')?'color':'text','group'=>$group]);
+            $type = match (true) {
+                str_ends_with($key, '_color') => 'color',
+                in_array($key, ['header_scripts', 'footer_scripts'], true) => 'html',
+                default => 'text',
+            };
+            Setting::updateOrCreate(['key'=>$key],['value'=>$data[$key],'type'=>$type,'group'=>$group]);
         }
         foreach(['logo','favicon'] as $key) if($request->hasFile($key)) {
             $old=Setting::where('key',$key)->value('value'); if($old) Storage::disk('public')->delete($old);

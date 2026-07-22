@@ -19,7 +19,7 @@ class StoreController extends Controller
         $posts=Post::published()->latest('published_at')->limit(6)->get();
 
         return response()->json([
-            'settings'=>collect(Setting::flat())->except(['vapid_private_key'])->all(),
+            'settings'=>collect(Setting::flat())->except(['vapid_private_key','header_scripts','footer_scripts'])->all(),
             'categories'=>Category::where('is_active',true)->withCount(['products'=>fn($q)=>$q->active()])->orderBy('sort_order')->get(),
             'brands'=>Brand::where('is_active',true)->orderBy('name')->get(),
             'banners'=>Banner::where('is_active',true)->orderBy('sort_order')->get(),

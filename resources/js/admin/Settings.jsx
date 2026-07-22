@@ -9,6 +9,10 @@ const sections = [
     ['Business details', [['phone', 'Phone'], ['email', 'Email', 'email'], ['address', 'Address', 'textarea'], ['whatsapp', 'WhatsApp number'], ['facebook', 'Facebook URL', 'url'], ['instagram', 'Instagram URL', 'url'], ['youtube', 'YouTube URL', 'url']]],
     ['Homepage & footer', [['announcement', 'Announcement text', 'textarea'], ['hero_title', 'Hero title'], ['hero_subtitle', 'Hero subtitle', 'textarea'], ['footer_text', 'Footer text', 'textarea'], ['newsletter_title', 'Newsletter title']]],
     ['SEO & indexing', [['meta_title', 'Default SEO title'], ['meta_description', 'Default SEO description', 'textarea'], ['robots', 'Robots directives'], ['google_analytics_id', 'Google Analytics ID (e.g. G-XXXXXXXX)']]],
+    ['Tracking & custom code', [
+        ['header_scripts', 'Header code (Meta Pixel, GTM, custom scripts — injected in <head>)', 'code'],
+        ['footer_scripts', 'Body / footer code (optional noscript tags — injected before </body>)', 'code'],
+    ]],
 ];
 
 export default function Settings() {
@@ -47,6 +51,21 @@ export default function Settings() {
 }
 
 function SettingField({ name, label, type, value, onChange }) {
+    if (type === 'code') {
+        return (
+            <label className="full settings-code-field">
+                {label}
+                <textarea
+                    rows="10"
+                    spellCheck={false}
+                    placeholder={'<!-- Paste Meta Pixel or other tracking code here -->'}
+                    value={value || ''}
+                    onChange={(e) => onChange(e.target.value)}
+                />
+                <small>Paste the full snippet from Meta / Google / other tools. Saved as-is into the storefront HTML.</small>
+            </label>
+        );
+    }
     if (type === 'textarea') return <label className="full">{label}<textarea rows="3" value={value || ''} onChange={(e) => onChange(e.target.value)} /></label>;
     if (type === 'file') {
         const preview = value instanceof File ? URL.createObjectURL(value) : (typeof value === 'string' ? value : '');

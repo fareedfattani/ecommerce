@@ -30,10 +30,16 @@
             gtag('config', @json($analyticsId), { send_page_view: false });
         </script>
     @endif
+    @if(!empty($headerScripts))
+        {!! $headerScripts !!}
+    @endif
     @vite(['resources/js/app.jsx'])
 </head>
 <body>
     <div id="app"></div>
     <noscript>You need JavaScript enabled to use Nexify.</noscript>
+    @if(!empty($footerScripts))
+        {!! $footerScripts !!}
+    @endif
 </body>
 </html>
