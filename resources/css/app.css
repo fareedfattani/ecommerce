@@ -129,6 +129,20 @@
 .addons-admin-row code{font-size:12px;background:var(--soft);padding:6px 8px;border-radius:6px;text-align:center}
 .addons-admin-row input{width:100%}
 @media(max-width:760px){.addons-admin-head,.addons-admin-row{grid-template-columns:1fr}}
+.product-addons-builder{display:grid;gap:14px;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.product-addons-builder-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.product-addons-builder .field-hint{margin:4px 0 0;color:var(--muted);font-size:13px;line-height:1.45}
+.product-addons-groups{display:grid;gap:14px}
+.product-addons-group{padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--soft,#f7f9fc);display:grid;gap:10px}
+.product-addons-group-head{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+.product-addons-options{display:grid;gap:8px}
+.product-addons-options-head,.product-addons-option-row{display:grid;grid-template-columns:1fr 140px 40px;gap:8px;align-items:center}
+.product-addons-options-head{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
+.product-addons-option-row input{width:100%}
+.danger-text{color:#b42318}
+@media(max-width:760px){
+    .product-addons-group-head,.product-addons-options-head,.product-addons-option-row{grid-template-columns:1fr}
+}
 
 /* Admin image thumbs + form previews */
 .admin-thumb{display:inline-flex;width:44px;height:44px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:#f3f6fa;align-items:center;justify-content:center;vertical-align:middle}
@@ -200,5 +214,61 @@
   .quote-detail-aside{position:static}
   .quote-fields{grid-template-columns:1fr}
   .check-grid,.radio-grid{grid-template-columns:1fr}
+}
+
+.product-form-page{display:grid;gap:16px}
+.product-form-layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,.85fr);gap:18px;align-items:start}
+.product-form-side{display:grid;gap:16px;position:sticky;top:16px}
+.product-form-main .resource-form.has-editor{max-height:none;overflow:visible}
+.product-form-side .admin-card{overflow:hidden}
+.product-form-side .card-head{padding:16px 18px 0}
+.product-form-side .resource-form{padding:14px 18px 18px}
+.product-form-side .side-stack{display:grid;grid-template-columns:1fr;gap:14px}
+.product-form-side .side-stack>label,
+.product-form-side .side-stack>.full,
+.product-form-side .side-stack>.product-flag-checks{margin:0;width:100%}
+.product-form-side .form-grid label{display:flex;flex-direction:column;align-items:stretch;gap:6px;font-size:11px;font-weight:700;color:var(--navy)}
+.product-form-side .form-grid label input,
+.product-form-side .form-grid label select,
+.product-form-side .form-grid label textarea{margin-top:0}
+.product-form-side .check,
+.product-form-side label.check{
+    display:flex!important;
+    flex-direction:row!important;
+    align-items:center;
+    gap:10px;
+    min-height:38px;
+    padding:0 12px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:#fff;
+    font-size:12px;
+    font-weight:600;
+    color:var(--navy);
+    cursor:pointer;
+}
+.product-form-side .check input[type="checkbox"],
+.product-form-side label.check input[type="checkbox"]{
+    width:16px!important;
+    height:16px;
+    min-width:16px;
+    margin:0!important;
+    padding:0;
+    flex:0 0 16px;
+    accent-color:var(--primary);
+}
+.product-form-side .check span{line-height:1.2}
+.product-flag-checks{display:grid;grid-template-columns:1fr;gap:8px}
+.product-addons-side .check{margin-bottom:2px}
+.product-form-side .product-addons-builder{padding:0;border:0;background:transparent;gap:12px}
+.product-form-side .product-addons-builder-head{display:flex;justify-content:stretch}
+.product-form-side .product-addons-builder-head .btn{width:100%;justify-content:center}
+.product-form-side .product-addons-options-head,
+.product-form-side .product-addons-option-row{grid-template-columns:1fr 100px 36px}
+.product-form-side .field-hint{margin:0}
+.product-form-footer{display:flex;justify-content:flex-end;gap:10px;padding:4px 0 12px}
+@media(max-width:1100px){
+  .product-form-layout{grid-template-columns:1fr}
+  .product-form-side{position:static}
 }
 

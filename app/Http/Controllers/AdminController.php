@@ -123,22 +123,6 @@ class AdminController extends Controller
         return response()->json(['data'=>collect(Setting::flat())->except(['vapid_private_key'])->all()]);
     }
 
-    public function productAddons(): JsonResponse
-    {
-        return response()->json(['data'=>['product_addons'=>ProductAddons::catalog()]]);
-    }
-
-    public function saveProductAddons(Request $request): JsonResponse
-    {
-        $addons=$request->input('product_addons');
-        if(is_string($addons)) $addons=json_decode($addons,true);
-        Setting::updateOrCreate(
-            ['key'=>'product_addons'],
-            ['value'=>json_encode(ProductAddons::sanitize(is_array($addons)?$addons:null)),'type'=>'json','group'=>'commerce']
-        );
-        return $this->productAddons();
-    }
-
     public function shipping(): JsonResponse
     {
         $rates=Shipping::rates();
@@ -599,7 +583,7 @@ class AdminController extends Controller
 
     private function normalizeBooleans(Request $request): void
     {
-        foreach(['is_active','is_featured','is_sale','is_read'] as $field) {
+        foreach(['is_active','is_featured','is_sale','is_read','addons_enabled'] as $field) {
             if($request->has($field)) $request->merge([$field=>$request->boolean($field)]);
         }
     }
@@ -612,7 +596,8 @@ class AdminController extends Controller
             'brands'=>['name'=>'required|string|max:120','slug'=>['nullable','string','max:140',$unique('brands')],'description'=>'nullable|string','logo'=>'nullable|file|mimes:jpg,jpeg,png,gif,webp,avif|max:4096','is_active'=>'nullable|boolean'],
             'products'=>['category_id'=>'required|exists:categories,id','brand_id'=>'nullable|exists:brands,id','name'=>'required|string|max:180','slug'=>['nullable','string','max:200',$unique('products')],
                 'sku'=>['required','string','max:80',$unique('products','sku')],'price'=>'required|numeric|min:0|max:9999999999','sale_price'=>'nullable|numeric|min:0|lte:price','stock'=>'required|integer|min:0',
-                'condition'=>'required|in:new,used,refurbished,open-box','is_featured'=>'nullable|boolean','is_sale'=>'nullable|boolean','is_active'=>'nullable|boolean',
+                'condition'=>'required|in:new,used,refurbished,open-box','addons_enabled'=>'nullable|boolean','addons'=>'nullable',
+                'is_featured'=>'nullable|boolean','is_sale'=>'nullable|boolean','is_active'=>'nullable|boolean',
                 'image'=>'nullable|file|mimes:jpg,jpeg,png,gif,webp,avif|max:6144','gallery'=>'nullable|array|max:10','gallery.*'=>'file|mimes:jpg,jpeg,png,gif,webp,avif|max:6144','specs'=>'nullable','short_description'=>'nullable|string|max:1000','description'=>'nullable|string',
                 'seo_title'=>'nullable|string|max:255','seo_description'=>'nullable|string|max:1000'],
             'posts','pages'=>['title'=>'required|string|max:180','slug'=>['nullable','string','max:200',$unique($r)],'excerpt'=>'nullable|string|max:1000','content'=>'nullable|string','image'=>'nullable|file|mimes:jpg,jpeg,png,gif,webp,avif|max:6144',
@@ -633,7 +618,7 @@ class AdminController extends Controller
     {
         if(array_key_exists('slug',$data)||in_array($r,['categories','brands','products','posts','pages'])) $data['slug']=$data['slug']??Str::slug($data['name']??$data['title']);
         if($r==='coupons' && isset($data['code'])) $data['code']=Str::upper(trim($data['code']));
-        foreach(['is_active','is_featured','is_sale','is_read'] as $field) if($request->has($field)) $data[$field]=$request->boolean($field);
+        foreach(['is_active','is_featured','is_sale','is_read','addons_enabled'] as $field) if($request->has($field)) $data[$field]=$request->boolean($field);
         foreach(['image','logo'] as $field) if($request->hasFile($field)) {
             if($record?->{$field}) Storage::disk('public')->delete($record->{$field});
             $data[$field]=$request->file($field)->store($r,'public');
@@ -644,6 +629,10 @@ class AdminController extends Controller
                 Storage::disk('public')->delete($record?->gallery??[]);
                 $data['gallery']=collect($request->file('gallery'))->map(fn($f)=>$f->store('products/gallery','public'))->all();
             }
+            $data['addons_enabled']=$request->boolean('addons_enabled');
+            $data['addons']=$data['addons_enabled']
+                ? ProductAddons::sanitize($data['addons'] ?? $request->input('addons'))
+                : [];
         }
         return $data;
     }

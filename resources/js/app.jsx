@@ -15,9 +15,8 @@ import { About, Blog, BlogDetail, CmsPage, Contact, NotFound } from './pages/Con
 import { ProtectedAdmin } from './admin/AdminLayout';
 import Login from './admin/Login';
 import Dashboard from './admin/Dashboard';
-import ResourceManager, { OrderDetail, Orders, resourceConfigs } from './admin/ResourceManager';
+import ResourceManager, { OrderDetail, Orders, ProductFormPage, resourceConfigs } from './admin/ResourceManager';
 import Settings from './admin/Settings';
-import ProductAddons from './admin/ProductAddons';
 import DeliveryCharges from './admin/DeliveryCharges';
 import QuoteRequests from './admin/QuoteRequests';
 import PushNotifications from './admin/PushNotifications';
@@ -44,11 +43,12 @@ function App() {
                 <Route path="/cp/login" element={<Login />} />
                 <Route path="/cp" element={<ProtectedAdmin />}>
                     <Route index element={<Dashboard />} />
+                    <Route path="products/new" element={<ProductFormPage />} />
+                    <Route path="products/:id/edit" element={<ProductFormPage />} />
                     {Object.keys(resourceConfigs).map((resource) => <Route key={resource} path={resource} element={<ResourceManager resource={resource} />} />)}
                     <Route path="orders" element={<Orders />} />
                     <Route path="orders/:id" element={<OrderDetail />} />
                     <Route path="push-notifications" element={<PushNotifications />} />
-                    <Route path="product-addons" element={<ProductAddons />} />
                     <Route path="delivery-charges" element={<DeliveryCharges />} />
                     <Route path="quote-requests" element={<QuoteRequests />} />
                     <Route path="settings" element={<Settings />} />

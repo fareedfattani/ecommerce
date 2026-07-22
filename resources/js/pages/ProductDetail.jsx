@@ -4,32 +4,34 @@ import { Link, useParams } from 'react-router-dom';
 import { api, messageFrom, unwrap } from '../api/client';
 import { ErrorState, Loading, Media, SectionTitle, money } from '../components/Common';
 import ProductCard from '../components/ProductCard';
-import { useCart, useStore } from '../contexts/StoreContext';
-import { DEFAULT_ADDONS, addonExtra, addonSummary, normalizeAddons, productAllowsAddons, resolveAddonGroups } from '../data/addons';
+import { useCart } from '../contexts/StoreContext';
+import { addonExtra, addonSummary, catalogForProduct, defaultAddons, normalizeAddons, productAllowsAddons } from '../data/addons';
 
 export default function ProductDetail() {
-    const { slug } = useParams(), cart = useCart(), store = useStore();
+    const { slug } = useParams(), cart = useCart();
     const [product, setProduct] = useState(null), [loading, setLoading] = useState(true), [error, setError] = useState('');
     const [quantity, setQuantity] = useState(1), [active, setActive] = useState(0);
-    const [addons, setAddons] = useState(DEFAULT_ADDONS);
-    const catalog = useMemo(() => resolveAddonGroups(store.settings?.product_addons || cart.catalog), [store.settings?.product_addons, cart.catalog]);
+    const [addons, setAddons] = useState({});
 
     useEffect(() => {
-        setLoading(true); window.scrollTo(0, 0); setAddons(DEFAULT_ADDONS); setQuantity(1); setActive(0);
+        setLoading(true); window.scrollTo(0, 0); setAddons({}); setQuantity(1); setActive(0);
         api.get(`/products/${slug}`).then((r) => {
             const payload = unwrap(r);
-            setProduct({ ...payload.product, related_products: payload.related || [] });
+            const next = { ...payload.product, related_products: payload.related || [] };
+            setProduct(next);
+            setAddons(defaultAddons(catalogForProduct(next)));
         }).catch((e) => setError(messageFrom(e))).finally(() => setLoading(false));
     }, [slug]);
 
-    const allowsAddons = productAllowsAddons(product);
+    const catalog = useMemo(() => catalogForProduct(product), [product]);
+    const allowsAddons = productAllowsAddons(product) && Object.keys(catalog).length > 0;
     const selected = useMemo(() => (allowsAddons ? normalizeAddons(addons, catalog) : null), [addons, catalog, allowsAddons]);
     const extra = useMemo(() => (allowsAddons ? addonExtra(selected, catalog) : 0), [selected, catalog, allowsAddons]);
     const summary = useMemo(() => (allowsAddons ? addonSummary(selected, catalog) : []), [selected, catalog, allowsAddons]);
-    const includedLabels = useMemo(() => Object.values(DEFAULT_ADDONS).map((id, i) => {
-        const group = Object.keys(DEFAULT_ADDONS)[i];
-        return catalog[group]?.options?.find((o) => o.id === id)?.label || id;
-    }), [catalog]);
+    const includedLabels = useMemo(() => Object.entries(catalog).map(([groupId, config]) => {
+        const id = defaultAddons(catalog)[groupId] || config.options?.[0]?.id;
+        return config.options?.find((o) => o.id === id)?.label || id;
+    }).filter(Boolean), [catalog]);
     const basePrice = Number(product?.sale_price || product?.price || 0);
     const totalPrice = basePrice + extra;
 
@@ -58,7 +60,7 @@ export default function ProductDetail() {
                 {allowsAddons && <div className="addon-panel">
                     <div className="addon-panel-head">
                         <h2>Customize your setup</h2>
-                        <p>Included by default: {includedLabels.join(', ')}.</p>
+                        {!!includedLabels.length && <p>Included by default: {includedLabels.join(', ')}.</p>}
                     </div>
                     {Object.entries(catalog).map(([group, config]) => (
                         <div className="addon-group" key={group}>

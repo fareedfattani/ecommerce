@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { api, unwrap } from '../api/client';
-import { DEFAULT_ADDONS, addonExtra, addonSummary, lineKey, normalizeAddons, productAllowsAddons, resolveAddonGroups } from '../data/addons';
+import { addonExtra, addonSummary, catalogForProduct, defaultAddons, lineKey, normalizeAddons, productAllowsAddons } from '../data/addons';
 
 const StoreContext = createContext(null);
 const CartContext = createContext(null);
@@ -70,10 +70,10 @@ export function StoreProvider({ children }) {
     return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
-function buildCartLine(product, quantity = 1, addons = DEFAULT_ADDONS, catalog) {
-    const groups = resolveAddonGroups(catalog);
-    const allows = productAllowsAddons(product);
-    const selected = allows ? normalizeAddons(addons || DEFAULT_ADDONS, groups) : null;
+function buildCartLine(product, quantity = 1, addons = null) {
+    const groups = catalogForProduct(product);
+    const allows = productAllowsAddons(product) && Object.keys(groups).length > 0;
+    const selected = allows ? normalizeAddons(addons || defaultAddons(groups), groups) : null;
     const base_price = Number(product.base_price ?? product.sale_price ?? product.price ?? 0);
     const price = base_price + (selected ? addonExtra(selected, groups) : 0);
     return {
@@ -88,10 +88,6 @@ function buildCartLine(product, quantity = 1, addons = DEFAULT_ADDONS, catalog) 
 }
 
 export function CartProvider({ children }) {
-    const store = useStore();
-    const catalog = useMemo(() => resolveAddonGroups(store.settings?.product_addons), [store.settings?.product_addons]);
-    const catalogKey = useMemo(() => JSON.stringify(catalog), [catalog]);
-
     const [items, setItems] = useState(() => {
         try {
             return JSON.parse(localStorage.getItem('nexify-cart')) ?? [];
@@ -104,14 +100,14 @@ export function CartProvider({ children }) {
     useEffect(() => {
         setItems((current) => current.map((item) => {
             const { unit_price, lineKey: _lk, addon_summary: _as, ...product } = item;
-            return buildCartLine(product, item.quantity || 1, item.addons || DEFAULT_ADDONS, catalog);
+            return buildCartLine(product, item.quantity || 1, item.addons || null);
         }));
-    }, [catalogKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => localStorage.setItem('nexify-cart', JSON.stringify(items)), [items]);
 
-    const add = (product, quantity = 1, addons = DEFAULT_ADDONS) => {
-        const line = buildCartLine(product, quantity, addons, catalog);
+    const add = (product, quantity = 1, addons = null) => {
+        const line = buildCartLine(product, quantity, addons);
         setItems((current) => {
             const found = current.find((item) => item.lineKey === line.lineKey);
             if (found) {
@@ -132,7 +128,7 @@ export function CartProvider({ children }) {
     const count = items.reduce((sum, item) => sum + item.quantity, 0);
     const total = items.reduce((sum, item) => sum + Number(item.unit_price ?? item.sale_price ?? item.price ?? 0) * item.quantity, 0);
 
-    return <CartContext.Provider value={{ items, add, update, remove, clear, count, total, drawerOpen, setDrawerOpen, catalog }}>{children}</CartContext.Provider>;
+    return <CartContext.Provider value={{ items, add, update, remove, clear, count, total, drawerOpen, setDrawerOpen }}>{children}</CartContext.Provider>;
 }
 
 export const useStore = () => useContext(StoreContext);

@@ -1,11 +1,11 @@
-import { BarChart3, Bell, BookOpen, ChevronLeft, ClipboardList, FileText, HelpCircle, Image, Layers3, LogOut, Menu, MessageSquareQuote, Package, PanelsTopLeft, Settings, ShoppingCart, SlidersHorizontal, Tags, TicketPercent, Truck, Users, X } from 'lucide-react';
+import { BarChart3, Bell, BookOpen, ChevronLeft, ClipboardList, FileText, HelpCircle, Image, Layers3, LogOut, Menu, MessageSquareQuote, Package, PanelsTopLeft, Settings, ShoppingCart, Tags, TicketPercent, Truck, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Loading } from '../components/Common';
 import { useAuth } from '../contexts/AuthContext';
 
 const links = [
-    ['Dashboard', '/cp', BarChart3, true], ['Products', '/cp/products', Package], ['Product add-ons', '/cp/product-addons', SlidersHorizontal], ['Categories', '/cp/categories', Layers3],
+    ['Dashboard', '/cp', BarChart3, true], ['Products', '/cp/products', Package], ['Categories', '/cp/categories', Layers3],
     ['Brands', '/cp/brands', Tags], ['Orders', '/cp/orders', ShoppingCart], ['Quote requests', '/cp/quote-requests', ClipboardList], ['Delivery charges', '/cp/delivery-charges', Truck], ['Coupons', '/cp/coupons', TicketPercent], ['Posts', '/cp/posts', BookOpen],
     ['Pages', '/cp/pages', FileText], ['Banners', '/cp/banners', Image], ['FAQs', '/cp/faqs', HelpCircle],
     ['Testimonials', '/cp/testimonials', MessageSquareQuote], ['Subscribers', '/cp/subscribers', Users],

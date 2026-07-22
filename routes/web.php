@@ -38,8 +38,6 @@ Route::prefix('api')->group(function () {
             Route::get('/orders/{id}/invoice', [AdminController::class, 'order'])->whereNumber('id');
             Route::get('/settings', [AdminController::class, 'settings']);
             Route::match(['put','post'], '/settings', [AdminController::class, 'saveSettings']);
-            Route::get('/product-addons', [AdminController::class, 'productAddons']);
-            Route::match(['put','post'], '/product-addons', [AdminController::class, 'saveProductAddons']);
             Route::get('/shipping', [AdminController::class, 'shipping']);
             Route::match(['put','post'], '/shipping', [AdminController::class, 'saveShipping']);
             Route::get('/quote-requests', [AdminController::class, 'quoteRequests']);

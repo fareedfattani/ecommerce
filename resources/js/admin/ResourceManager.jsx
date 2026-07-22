@@ -1,13 +1,14 @@
-import { Download, Eye, FileSpreadsheet, Pencil, Plus, Printer, Search, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, Download, Eye, FileSpreadsheet, Pencil, Plus, Printer, Search, Trash2, Upload } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, listFrom, messageFrom, toFormData, unwrap } from '../api/client';
 import { Empty, ErrorState, Loading, Modal, Pagination, asset, money } from '../components/Common';
 import RichEditor from '../components/RichEditor';
+import { addonUid, normalizeCatalogList } from '../data/addons';
 import { AdminPage } from './Dashboard';
 
 export const resourceConfigs = {
-    products: { title: 'Products', singular: 'Product', fields: [['name', 'Name', 'text', true], ['slug', 'Slug'], ['sku', 'SKU', 'text', true], ['price', 'Price', 'number', true], ['sale_price', 'Sale price', 'number'], ['stock', 'Stock', 'number', true], ['category_id', 'Category', 'category-select', true], ['brand_id', 'Brand', 'brand-select'], ['condition', 'Condition', 'condition-select', true], ['short_description', 'Short description', 'textarea'], ['description', 'Description', 'editor'], ['specs', 'Specifications (JSON)', 'json'], ['seo_title', 'SEO title'], ['seo_description', 'SEO description', 'textarea'], ['image', 'Main image', 'file'], ['gallery', 'Gallery images', 'files'], ['is_featured', 'Featured', 'checkbox'], ['is_sale', 'On sale', 'checkbox'], ['is_active', 'Active', 'checkbox']], columns: [['image_url', 'Image', 'image'], ['name', 'Product'], ['sku', 'SKU'], ['price', 'Price', 'money'], ['stock', 'Stock'], ['is_active', 'Status', 'boolean']], multipart: true },
+    products: { title: 'Products', singular: 'Product', fields: [['name', 'Name', 'text', true], ['slug', 'Slug'], ['sku', 'SKU', 'text', true], ['price', 'Price', 'number', true], ['sale_price', 'Sale price', 'number'], ['stock', 'Stock', 'number', true], ['category_id', 'Category', 'category-select', true], ['brand_id', 'Brand', 'brand-select'], ['condition', 'Condition', 'condition-select', true], ['addons_enabled', 'Enable add-ons', 'checkbox'], ['addons', 'Product add-ons', 'product-addons'], ['short_description', 'Short description', 'textarea'], ['description', 'Description', 'editor'], ['specs', 'Specifications (JSON)', 'json'], ['seo_title', 'SEO title'], ['seo_description', 'SEO description', 'textarea'], ['image', 'Main image', 'file'], ['gallery', 'Gallery images', 'files'], ['is_featured', 'Featured', 'checkbox'], ['is_sale', 'On sale', 'checkbox'], ['is_active', 'Active', 'checkbox']], columns: [['image_url', 'Image', 'image'], ['name', 'Product'], ['sku', 'SKU'], ['price', 'Price', 'money'], ['stock', 'Stock'], ['is_active', 'Status', 'boolean']], multipart: true },
     categories: { title: 'Categories', singular: 'Category', fields: [['name', 'Name', 'text', true], ['slug', 'Slug'], ['description', 'Description', 'textarea'], ['image', 'Image', 'file'], ['sort_order', 'Sort order', 'number'], ['is_active', 'Active', 'checkbox']], columns: [['image_url', 'Image', 'image'], ['name', 'Name'], ['products_count', 'Products'], ['sort_order', 'Order'], ['is_active', 'Status', 'boolean']], multipart: true },
     brands: { title: 'Brands', singular: 'Brand', fields: [['name', 'Name', 'text', true], ['slug', 'Slug'], ['description', 'Description', 'textarea'], ['logo', 'Logo', 'file'], ['is_active', 'Active', 'checkbox']], columns: [['logo_url', 'Logo', 'image'], ['name', 'Name'], ['products_count', 'Products'], ['is_active', 'Status', 'boolean']], multipart: true },
     posts: { title: 'Blog Posts', singular: 'Post', fields: [['title', 'Title', 'text', true], ['slug', 'Slug'], ['excerpt', 'Excerpt', 'textarea'], ['content', 'Content', 'editor', true], ['image', 'Featured image', 'file'], ['seo_title', 'SEO title'], ['seo_description', 'SEO description', 'textarea'], ['published_at', 'Publish date', 'date'], ['is_active', 'Published', 'checkbox']], columns: [['image_url', 'Image', 'image'], ['title', 'Title'], ['is_active', 'Published', 'boolean'], ['published_at', 'Date', 'date']], multipart: true },
@@ -19,15 +20,37 @@ export const resourceConfigs = {
     subscribers: { title: 'Subscribers', singular: 'Subscriber', fields: [['email', 'Email', 'email', true], ['is_active', 'Active', 'checkbox']], columns: [['email', 'Email'], ['is_active', 'Status', 'boolean'], ['created_at', 'Subscribed', 'date']] },
 };
 
+const PRODUCT_MAIN_FIELDS = ['name', 'slug', 'sku', 'price', 'sale_price', 'stock', 'category_id', 'brand_id', 'short_description', 'description', 'specs', 'seo_title', 'seo_description'];
+const PRODUCT_SIDE_ADDONS = ['addons_enabled', 'addons'];
+
+function fieldInitial(key, type, item) {
+    if (type === 'file') return '';
+    if (type === 'files') return [];
+    if (type === 'checkbox') return Boolean(item?.[key]);
+    if (type === 'product-addons') return normalizeCatalogList(item?.[key]);
+    if (type === 'json' && item?.[key] && typeof item[key] !== 'string') return JSON.stringify(item[key], null, 2);
+    if (type === 'condition-select') return item?.[key] || 'new';
+    return item?.[key] ?? '';
+}
+
 export default function ResourceManager({ resource }) {
     const config = resourceConfigs[resource], [result, setResult] = useState({ items: [], meta: {} }), [loading, setLoading] = useState(true), [error, setError] = useState(''), [search, setSearch] = useState(''), [page, setPage] = useState(1), [editing, setEditing] = useState(null), [open, setOpen] = useState(false), [importOpen, setImportOpen] = useState(false);
+    const navigate = useNavigate();
+    const isProducts = resource === 'products';
     const load = () => { setLoading(true); setError(''); api.get(`/cp/${resource}`, { params: { search, page } }).then((r) => setResult(listFrom(r))).catch((e) => setError(messageFrom(e))).finally(() => setLoading(false)); };
     useEffect(load, [resource, page]);
     const remove = async (item) => { if (!confirm(`Delete this ${config.singular.toLowerCase()}?`)) return; try { await api.delete(`/cp/${resource}/${item.id}`); load(); } catch (e) { alert(messageFrom(e)); } };
-    const create = () => { setEditing(null); setOpen(true); };
+    const create = () => {
+        if (isProducts) navigate('/cp/products/new');
+        else { setEditing(null); setOpen(true); }
+    };
+    const edit = (item) => {
+        if (isProducts) navigate(`/cp/products/${item.id}/edit`);
+        else { setEditing(item); setOpen(true); }
+    };
     const pageAction = resource === 'subscribers' ? null : (
         <div className="admin-page-actions">
-            {resource === 'products' && <>
+            {isProducts && <>
                 <a className="btn btn-outline" href="/api/cp/products/import-template"><Download /> Demo Excel</a>
                 <button type="button" className="btn btn-outline" onClick={() => setImportOpen(true)}><Upload /> Import Excel</button>
             </>}
@@ -36,12 +59,146 @@ export default function ResourceManager({ resource }) {
     );
     return <AdminPage title={config.title} subtitle={`Manage storefront ${config.title.toLowerCase()}.`} action={pageAction}>
         <section className="admin-card"><div className="resource-toolbar"><form onSubmit={(e) => { e.preventDefault(); setPage(1); load(); }}><Search /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Search ${config.title.toLowerCase()}…`} /></form></div>
-            {loading ? <Loading /> : error ? <ErrorState message={error} retry={load} /> : !result.items.length ? <Empty title={`No ${config.title.toLowerCase()} found`} /> : <div className="table-wrap"><table><thead><tr>{config.columns.map(([, label]) => <th key={label}>{label}</th>)}<th>Actions</th></tr></thead><tbody>{result.items.map((item) => <tr key={item.id}>{config.columns.map(([key, , type]) => <td key={key}>{renderCell(item[key] ?? item[key?.replace('_url', '')], type, item)}</td>)}<td><div className="table-actions"><button onClick={() => { setEditing(item); setOpen(true); }} title="Edit"><Pencil /></button><button className="danger" onClick={() => remove(item)} title="Delete"><Trash2 /></button></div></td></tr>)}</tbody></table></div>}
+            {loading ? <Loading /> : error ? <ErrorState message={error} retry={load} /> : !result.items.length ? <Empty title={`No ${config.title.toLowerCase()} found`} /> : <div className="table-wrap"><table><thead><tr>{config.columns.map(([, label]) => <th key={label}>{label}</th>)}<th>Actions</th></tr></thead><tbody>{result.items.map((item) => <tr key={item.id}>{config.columns.map(([key, , type]) => <td key={key}>{renderCell(item[key] ?? item[key?.replace('_url', '')], type, item)}</td>)}<td><div className="table-actions"><button onClick={() => edit(item)} title="Edit"><Pencil /></button><button className="danger" onClick={() => remove(item)} title="Delete"><Trash2 /></button></div></td></tr>)}</tbody></table></div>}
             <Pagination meta={result.meta} onPage={setPage} />
         </section>
-        <ResourceForm open={open} close={() => setOpen(false)} resource={resource} config={config} item={editing} saved={() => { setOpen(false); load(); }} />
-        {resource === 'products' && <ProductImportModal open={importOpen} close={() => setImportOpen(false)} saved={() => { setImportOpen(false); load(); }} />}
+        {!isProducts && <ResourceForm open={open} close={() => setOpen(false)} resource={resource} config={config} item={editing} saved={() => { setOpen(false); load(); }} />}
+        {isProducts && <ProductImportModal open={importOpen} close={() => setImportOpen(false)} saved={() => { setImportOpen(false); load(); }} />}
     </AdminPage>;
+}
+
+export function ProductFormPage() {
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const isEdit = Boolean(id);
+    const config = resourceConfigs.products;
+    const [item, setItem] = useState(null);
+    const [loading, setLoading] = useState(isEdit);
+    const [error, setError] = useState('');
+    const [loadError, setLoadError] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [categories, setCategories] = useState([]);
+    const [brands, setBrands] = useState([]);
+
+    const initial = useMemo(() => Object.fromEntries(config.fields.map(([key, , type]) => [key, fieldInitial(key, type, item)])), [item, config]);
+    const [values, setValues] = useState(initial);
+    useEffect(() => setValues(initial), [initial]);
+
+    useEffect(() => {
+        Promise.all([
+            api.get('/cp/categories', { params: { per_page: 100 } }),
+            api.get('/cp/brands', { params: { per_page: 100 } }),
+        ]).then(([catRes, brandRes]) => {
+            setCategories(listFrom(catRes).items || []);
+            setBrands(listFrom(brandRes).items || []);
+        }).catch(() => { setCategories([]); setBrands([]); });
+    }, []);
+
+    useEffect(() => {
+        if (!isEdit) { setItem(null); setLoading(false); return; }
+        setLoading(true); setLoadError('');
+        api.get(`/cp/products/${id}`)
+            .then((r) => setItem(unwrap(r) || null))
+            .catch((e) => setLoadError(messageFrom(e)))
+            .finally(() => setLoading(false));
+    }, [id, isEdit]);
+
+    const setField = (key, value) => setValues((current) => ({ ...current, [key]: value }));
+
+    const submit = async (e) => {
+        e.preventDefault();
+        setBusy(true); setError('');
+        try {
+            const payload = { ...values };
+            payload.addons_enabled = values.addons_enabled ? 1 : 0;
+            payload.addons = JSON.stringify(values.addons_enabled ? normalizeCatalogList(values.addons) : []);
+            if (isEdit) payload._method = 'PUT';
+            Object.keys(payload).forEach((key) => {
+                const field = config.fields.find(([name]) => name === key);
+                if (!field) return;
+                const type = field[2];
+                if (type === 'file' && !(payload[key] instanceof File)) delete payload[key];
+                if (type === 'files' && (!Array.isArray(payload[key]) || !payload[key].length || !(payload[key][0] instanceof File))) delete payload[key];
+            });
+            if (!payload.brand_id) payload.brand_id = '';
+            const body = toFormData(payload);
+            if (isEdit) await api.post(`/cp/products/${id}`, body);
+            else await api.post('/cp/products', body);
+            navigate('/cp/products');
+        } catch (err) {
+            setError(messageFrom(err));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    if (loading) return <AdminPage><Loading label="Loading product" /></AdminPage>;
+    if (loadError) return <AdminPage><ErrorState message={loadError} /></AdminPage>;
+
+    const fieldByKey = Object.fromEntries(config.fields.map((field) => [field[0], field]));
+    const renderFields = (keys) => keys.map((key) => {
+        const field = fieldByKey[key];
+        if (!field) return null;
+        const [, label, type = 'text', required] = field;
+        if (key === 'addons' && !values.addons_enabled) return null;
+        return (
+            <Field
+                key={key}
+                name={key}
+                label={label}
+                type={type}
+                required={required}
+                value={values[key]}
+                existing={previewUrlsForField(key, item)}
+                options={{ categories, brands }}
+                onChange={(value) => setField(key, value)}
+            />
+        );
+    });
+
+    return (
+        <AdminPage
+            title={isEdit ? 'Edit product' : 'Add product'}
+            subtitle={isEdit ? 'Update details, media and add-ons for this product.' : 'Create a product with pricing, media and optional add-ons.'}
+            action={(
+                <div className="admin-page-actions">
+                    <Link className="btn btn-outline" to="/cp/products"><ArrowLeft size={16} /> Back</Link>
+                    <button form="product-form-page" className="btn" disabled={busy}>{busy ? 'Saving…' : 'Save product'}</button>
+                </div>
+            )}
+        >
+            <form id="product-form-page" className="product-form-page" onSubmit={submit}>
+                <div className="product-form-layout">
+                    <section className="admin-card product-form-main">
+                        <div className="card-head"><div><h2>Product details</h2><p>Name, pricing, content and SEO</p></div></div>
+                        <div className="resource-form form-grid has-editor">{renderFields(PRODUCT_MAIN_FIELDS)}</div>
+                    </section>
+                    <aside className="product-form-side">
+                        <section className="admin-card">
+                            <div className="card-head"><div><h2>Options</h2><p>Condition, media and visibility</p></div></div>
+                            <div className="resource-form form-grid side-stack">
+                                {renderFields(['condition', 'image', 'gallery'])}
+                                <div className="product-flag-checks full">
+                                    {renderFields(['is_featured', 'is_sale', 'is_active'])}
+                                </div>
+                            </div>
+                        </section>
+                        <section className="admin-card">
+                            <div className="card-head"><div><h2>Add-ons</h2><p>Custom groups and option prices</p></div></div>
+                            <div className="resource-form form-grid side-stack product-addons-side">
+                                {renderFields(PRODUCT_SIDE_ADDONS)}
+                            </div>
+                        </section>
+                    </aside>
+                </div>
+                {error && <p className="form-error">{error}</p>}
+                <div className="product-form-footer">
+                    <Link className="btn btn-ghost" to="/cp/products">Cancel</Link>
+                    <button className="btn" disabled={busy}>{busy ? 'Saving…' : 'Save product'}</button>
+                </div>
+            </form>
+        </AdminPage>
+    );
 }
 
 function ProductImportModal({ open, close, saved }) {
@@ -116,14 +273,7 @@ function previewUrlsForField(name, item) {
 }
 
 function ResourceForm({ open, close, resource, config, item, saved }) {
-    const initial = useMemo(() => Object.fromEntries(config.fields.map(([key, , type]) => [key,
-        type === 'file' ? '' :
-        type === 'files' ? [] :
-        type === 'checkbox' ? Boolean(item?.[key]) :
-        type === 'json' && item?.[key] && typeof item[key] !== 'string' ? JSON.stringify(item[key], null, 2) :
-        type === 'condition-select' ? (item?.[key] || 'new') :
-        item?.[key] ?? '',
-    ])), [item, config]);
+    const initial = useMemo(() => Object.fromEntries(config.fields.map(([key, , type]) => [key, fieldInitial(key, type, item)])), [item, config]);
     const [values, setValues] = useState(initial), [busy, setBusy] = useState(false), [error, setError] = useState('');
     const [categories, setCategories] = useState([]);
     const [brands, setBrands] = useState([]);
@@ -145,6 +295,12 @@ function ResourceForm({ open, close, resource, config, item, saved }) {
         e.preventDefault(); setBusy(true); setError('');
         try {
             const payload = { ...values };
+            if (resource === 'products') {
+                payload.addons_enabled = values.addons_enabled ? 1 : 0;
+                payload.addons = JSON.stringify(
+                    values.addons_enabled ? normalizeCatalogList(values.addons) : [],
+                );
+            }
             if (config.multipart && item) payload._method = 'PUT';
             // Don't send empty file fields — keeps existing image on update
             if (config.multipart) {
@@ -163,11 +319,14 @@ function ResourceForm({ open, close, resource, config, item, saved }) {
             saved();
         } catch (err) { setError(messageFrom(err)); } finally { setBusy(false); }
     };
-    return <Modal open={open} onClose={close} title={`${item ? 'Edit' : 'Add'} ${config.singular}`} wide><form className={`resource-form form-grid ${config.fields.some(([, , type]) => type === 'editor') ? 'has-editor' : ''}`} onSubmit={submit}>{config.fields.map(([key, label, type = 'text', required]) => <Field key={key} name={key} label={label} type={type} required={required} value={values[key]} existing={previewUrlsForField(key, item)} options={{ categories, brands }} onChange={(value) => setValues({ ...values, [key]: value })} />)}{error && <p className="form-error full">{error}</p>}<div className="modal-actions full"><button type="button" className="btn btn-ghost" onClick={close}>Cancel</button><button className="btn" disabled={busy}>{busy ? 'Saving…' : `Save ${config.singular}`}</button></div></form></Modal>;
+    return <Modal open={open} onClose={close} title={`${item ? 'Edit' : 'Add'} ${config.singular}`} wide><form className={`resource-form form-grid ${config.fields.some(([, , type]) => type === 'editor') ? 'has-editor' : ''}`} onSubmit={submit}>{config.fields.map(([key, label, type = 'text', required]) => {
+        if (key === 'addons' && !values.addons_enabled) return null;
+        return <Field key={key} name={key} label={label} type={type} required={required} value={values[key]} existing={previewUrlsForField(key, item)} options={{ categories, brands }} onChange={(value) => setValues({ ...values, [key]: value })} />;
+    })}{error && <p className="form-error full">{error}</p>}<div className="modal-actions full"><button type="button" className="btn btn-ghost" onClick={close}>Cancel</button><button className="btn" disabled={busy}>{busy ? 'Saving…' : `Save ${config.singular}`}</button></div></form></Modal>;
 }
 
 function Field({ name, label, type, value, onChange, required, existing = [], options = {} }) {
-    if (type === 'checkbox') return <label className="check full"><input name={name} type="checkbox" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked ? 1 : 0)} /> {label}</label>;
+    if (type === 'checkbox') return <label className="check full"><input name={name} type="checkbox" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked ? 1 : 0)} /><span>{label}</span></label>;
     if (type === 'coupon-type') return <label>{label}<select required={required} value={value || 'percent'} onChange={(e) => onChange(e.target.value)}><option value="percent">Percentage</option><option value="fixed">Fixed amount</option></select></label>;
     if (type === 'category-select') {
         return <label>{label}{required ? ' *' : ''}
@@ -195,12 +354,120 @@ function Field({ name, label, type, value, onChange, required, existing = [], op
             </select>
         </label>;
     }
+    if (type === 'product-addons') {
+        return <ProductAddonsBuilder value={value} onChange={onChange} />;
+    }
     if (type === 'editor') return <div className="full editor-field"><span className="editor-label">{label}{required ? ' *' : ''}</span><RichEditor value={value || ''} onChange={onChange} required={required} placeholder={`Write ${label.toLowerCase()}…`} /></div>;
     if (type === 'textarea' || type === 'json') return <label className="full">{label}<textarea required={required} rows={type === 'json' ? 6 : 4} value={value} onChange={(e) => onChange(e.target.value)} placeholder={type === 'json' ? '[{\"name\":\"Processor\",\"value\":\"Intel Core i7\"}]' : ''} /></label>;
     if (type === 'file' || type === 'files') {
         return <ImageField label={label} type={type} value={value} existing={existing} onChange={onChange} />;
     }
     return <label>{label}<input name={name} required={required} type={type} value={type === 'datetime-local' && value ? String(value).slice(0, 16) : value} onChange={(e) => onChange(e.target.value)} /></label>;
+}
+
+function ProductAddonsBuilder({ value, onChange }) {
+    const groups = Array.isArray(value) ? value : [];
+
+    const setGroups = (next) => onChange(next);
+
+    const addGroup = () => {
+        const title = window.prompt('Add-on group title (e.g. RAM, Storage, Warranty)');
+        if (title === null) return;
+        const labelText = String(title).trim();
+        if (!labelText) {
+            alert('Group title is required.');
+            return;
+        }
+        setGroups([
+            ...groups,
+            {
+                id: addonUid('g'),
+                label: labelText,
+                options: [{ id: addonUid('o'), label: 'Included', price: 0 }],
+            },
+        ]);
+    };
+
+    const updateGroup = (index, patch) => {
+        setGroups(groups.map((group, i) => (i === index ? { ...group, ...patch } : group)));
+    };
+
+    const removeGroup = (index) => {
+        if (!confirm('Remove this add-on group?')) return;
+        setGroups(groups.filter((_, i) => i !== index));
+    };
+
+    const addOption = (groupIndex) => {
+        const group = groups[groupIndex];
+        updateGroup(groupIndex, {
+            options: [...(group.options || []), { id: addonUid('o'), label: '', price: 0 }],
+        });
+    };
+
+    const updateOption = (groupIndex, optionIndex, patch) => {
+        const group = groups[groupIndex];
+        updateGroup(groupIndex, {
+            options: (group.options || []).map((option, i) => (i === optionIndex ? { ...option, ...patch } : option)),
+        });
+    };
+
+    const removeOption = (groupIndex, optionIndex) => {
+        const group = groups[groupIndex];
+        const options = (group.options || []).filter((_, i) => i !== optionIndex);
+        if (!options.length) {
+            alert('Each add-on group needs at least one option.');
+            return;
+        }
+        updateGroup(groupIndex, { options });
+    };
+
+    return (
+        <div className="full product-addons-builder">
+            <div className="product-addons-builder-head">
+                <button type="button" className="btn btn-outline" onClick={addGroup}><Plus size={16} /> Add addon</button>
+            </div>
+            {!groups.length && <p className="field-hint">No add-ons yet. Click “Add addon” to create the first group.</p>}
+            <div className="product-addons-groups">
+                {groups.map((group, groupIndex) => (
+                    <div className="product-addons-group" key={group.id || groupIndex}>
+                        <div className="product-addons-group-head">
+                            <label className="full">
+                                Group title
+                                <input
+                                    value={group.label || ''}
+                                    onChange={(e) => updateGroup(groupIndex, { label: e.target.value })}
+                                    placeholder="e.g. RAM"
+                                />
+                            </label>
+                            <button type="button" className="btn btn-ghost danger-text" onClick={() => removeGroup(groupIndex)}><Trash2 size={16} /> Remove</button>
+                        </div>
+                        <div className="product-addons-options">
+                            <div className="product-addons-options-head"><span>Option title</span><span>Price (PKR)</span><span /></div>
+                            {(group.options || []).map((option, optionIndex) => (
+                                <div className="product-addons-option-row" key={option.id || optionIndex}>
+                                    <input
+                                        value={option.label || ''}
+                                        onChange={(e) => updateOption(groupIndex, optionIndex, { label: e.target.value })}
+                                        placeholder="e.g. 16GB RAM"
+                                    />
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        value={option.price ?? 0}
+                                        onChange={(e) => updateOption(groupIndex, optionIndex, { price: e.target.value })}
+                                        placeholder="0"
+                                    />
+                                    <button type="button" className="icon-btn danger" title="Remove option" onClick={() => removeOption(groupIndex, optionIndex)}><Trash2 size={15} /></button>
+                                </div>
+                            ))}
+                        </div>
+                        <button type="button" className="btn btn-ghost" onClick={() => addOption(groupIndex)}><Plus size={15} /> Add option</button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
 }
 
 function ImageField({ label, type, value, existing = [], onChange }) {

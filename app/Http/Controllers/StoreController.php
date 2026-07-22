@@ -97,15 +97,13 @@ class StoreController extends Controller
             'items.*.product_id'=>'required|integer|exists:products,id',
             'items.*.quantity'=>'required|integer|min:1|max:20',
             'items.*.addons'=>'nullable|array',
-            'items.*.addons.ram'=>'nullable|string|max:20',
-            'items.*.addons.storage'=>'nullable|string|max:20',
-            'items.*.addons.warranty'=>'nullable|string|max:20',
+            'items.*.addons.*'=>'nullable|string|max:80',
         ]);
         $products=Product::active()->whereIn('id',collect($data['items'])->pluck('product_id'))->get()->keyBy('id');
         $subtotalCents=collect($data['items'])->sum(function($item) use($products) {
             $product=$products->get($item['product_id']);
             if(!$product) throw ValidationException::withMessages(['items'=>['A selected product is unavailable.']]);
-            $resolved=ProductAddons::forProduct($product->condition,$item['addons']??null);
+            $resolved=ProductAddons::forProduct($product,$item['addons']??null);
             $base=$product->is_sale && $product->sale_price!==null ? $product->sale_price : $product->price;
             $price=round(((float)$base)+$resolved['extra'],2);
             return (int) round($price*100)*$item['quantity'];
@@ -129,7 +127,7 @@ class StoreController extends Controller
             'city'=>['required','string','min:2','max:100',Rule::in(Shipping::CITIES)],
             'address'=>'required|string|min:10|max:1000','notes'=>'nullable|string|max:1000','coupon_code'=>'nullable|string|max:50',
             'items'=>'required|array|min:1|max:30','items.*.product_id'=>'required|integer|exists:products,id','items.*.quantity'=>'required|integer|min:1|max:20',
-            'items.*.addons'=>'nullable|array','items.*.addons.ram'=>'nullable|string|max:20','items.*.addons.storage'=>'nullable|string|max:20','items.*.addons.warranty'=>'nullable|string|max:20',
+            'items.*.addons'=>'nullable|array','items.*.addons.*'=>'nullable|string|max:80',
         ]);
         $order=DB::transaction(function() use($data) {
             $lines=[]; $subtotalCents=0; $stockNeed=[];
@@ -141,7 +139,7 @@ class StoreController extends Controller
                 $product=Product::active()->lockForUpdate()->find($item['product_id']);
                 if(!$product) throw ValidationException::withMessages(['items'=>["Product #{$item['product_id']} is unavailable."]]);
                 if($product->stock < $stockNeed[$product->id]) throw ValidationException::withMessages(['items'=>["Insufficient stock for product #{$item['product_id']}."]]);
-                $resolved=ProductAddons::forProduct($product->condition,$item['addons']??null);
+                $resolved=ProductAddons::forProduct($product,$item['addons']??null);
                 $base=$product->is_sale && $product->sale_price!==null ? $product->sale_price : $product->price;
                 $price=round(((float)$base)+$resolved['extra'],2);
                 $unitCents=(int) round($price*100); $totalCents=$unitCents*$item['quantity']; $subtotalCents+=$totalCents;

@@ -15,7 +15,18 @@ class Product extends Model
 
     protected function casts(): array
     {
-        return ['price'=>'decimal:2','sale_price'=>'decimal:2','stock'=>'integer','is_featured'=>'boolean','is_sale'=>'boolean','is_active'=>'boolean','gallery'=>'array','specs'=>'array'];
+        return [
+            'price'=>'decimal:2',
+            'sale_price'=>'decimal:2',
+            'stock'=>'integer',
+            'is_featured'=>'boolean',
+            'is_sale'=>'boolean',
+            'is_active'=>'boolean',
+            'addons_enabled'=>'boolean',
+            'gallery'=>'array',
+            'specs'=>'array',
+            'addons'=>'array',
+        ];
     }
 
     public function category(): BelongsTo { return $this->belongsTo(Category::class); }
