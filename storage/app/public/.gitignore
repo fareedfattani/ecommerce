@@ -1,2 +1,1 @@
-*
-!.gitignore
+# Uploaded media is tracked in git (for Hostinger deploy).
