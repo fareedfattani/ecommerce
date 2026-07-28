@@ -78,6 +78,23 @@ class StoreController extends Controller
         return response()->json($q->paginate($data['per_page']??12)->withQueryString());
     }
 
+    public function searchSuggest(Request $request): JsonResponse
+    {
+        $data=$request->validate(['q'=>'required|string|min:1|max:200']);
+        $search=trim($data['q']);
+        $terms=preg_split('/\s+/u',$search,-1,PREG_SPLIT_NO_EMPTY) ?: [$search];
+        $q=Product::active()->select(['id','name','slug','image','price','sale_price','is_sale']);
+        $q->where(function($outer) use($terms) {
+            foreach($terms as $term) {
+                $like='%'.addcslashes($term,'%_\\').'%';
+                $outer->where(function($inner) use($like) {
+                    $inner->where('name','like',$like)->orWhere('sku','like',$like);
+                });
+            }
+        });
+        return response()->json(['data'=>$q->orderBy('name')->limit(8)->get()]);
+    }
+
     public function product(string $slug): JsonResponse
     {
         $product=Product::active()->with('category','brand')->where('slug',$slug)->firstOrFail();

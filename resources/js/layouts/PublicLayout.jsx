@@ -1,8 +1,9 @@
-import { ChevronDown, Globe, Mail, Menu, Search, ShoppingBag, X } from 'lucide-react';
+import { ChevronDown, Globe, Mail, Menu, ShoppingBag, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import CartDrawer from '../components/CartDrawer';
 import PushPrompt from '../components/PushPrompt';
+import SearchAutocomplete from '../components/SearchAutocomplete';
 import { asset } from '../components/Common';
 import { useCart, useStore } from '../contexts/StoreContext';
 
@@ -40,7 +41,14 @@ export default function PublicLayout() {
             <div className="header-main shell">
                 <button className="menu-btn" onClick={() => setMenu(!menu)} aria-label="Toggle menu">{menu ? <X /> : <Menu />}</button>
                 <Link className="logo" to="/">{settings.logo ? <img src={asset(settings.logo)} alt={settings.site_name} /> : <><span>N</span><b>{settings.site_name || 'Nexify'}</b></>}</Link>
-                <form className="header-search" onSubmit={submit}><label className="sr-only" htmlFor="site-search">Search products</label><input id="site-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search laptops, accessories, components…" /><button aria-label="Search"><Search /></button></form>
+                <SearchAutocomplete
+                    className="header-search-wrap"
+                    inputId="site-search"
+                    value={search}
+                    onChange={setSearch}
+                    onSubmit={submit}
+                    placeholder="Search laptops, accessories, components…"
+                />
                 <button className="cart-button" onClick={() => cart.setDrawerOpen(true)}><ShoppingBag /><span>Cart</span><b>{cart.count}</b></button>
             </div>
             <nav className={`nav ${menu ? 'open' : ''}`}><div className="shell nav-inner">
@@ -61,7 +69,7 @@ export default function PublicLayout() {
                     <NavLink to="/blog" onClick={closeMenu}>Guides</NavLink>
                     <NavLink to="/contact" onClick={closeMenu}>Contact</NavLink>
                 </div>
-                <form className="mobile-search" onSubmit={submit}><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products" /><button><Search /></button></form>
+                <SearchAutocomplete value={search} onChange={setSearch} onSubmit={submit} placeholder="Search products" mobile />
             </div></nav>
         </header>
         <main><Outlet /></main>

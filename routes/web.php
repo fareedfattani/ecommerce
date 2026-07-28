@@ -13,6 +13,7 @@ Route::prefix('api')->group(function () {
     Route::get('/csrf-token', fn () => response()->json(['csrf_token'=>csrf_token()]));
     Route::get('/storefront', [StoreController::class, 'storefront']);
     Route::get('/products', [StoreController::class, 'products']);
+    Route::get('/products/suggest', [StoreController::class, 'searchSuggest'])->middleware('throttle:60,1');
     Route::get('/products/{slug}', [StoreController::class, 'product']);
     Route::get('/posts', [StoreController::class, 'posts']);
     Route::get('/posts/{slug}', [StoreController::class, 'post']);
