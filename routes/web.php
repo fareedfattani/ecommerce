@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminAuthController;
+use App\Http\Controllers\AdminBackupController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminPushController;
 use App\Http\Controllers\PushController;
@@ -39,6 +40,11 @@ Route::prefix('api')->group(function () {
             Route::get('/orders/{id}/invoice', [AdminController::class, 'order'])->whereNumber('id');
             Route::get('/settings', [AdminController::class, 'settings']);
             Route::match(['put','post'], '/settings', [AdminController::class, 'saveSettings']);
+            Route::get('/backup', [AdminBackupController::class, 'info']);
+            Route::get('/backup/database/download', [AdminBackupController::class, 'downloadDatabase']);
+            Route::post('/backup/database/restore', [AdminBackupController::class, 'restoreDatabase'])->middleware('throttle:3,1');
+            Route::get('/backup/storage/download', [AdminBackupController::class, 'downloadStorage']);
+            Route::post('/backup/storage/restore', [AdminBackupController::class, 'restoreStorage'])->middleware('throttle:3,1');
             Route::get('/shipping', [AdminController::class, 'shipping']);
             Route::match(['put','post'], '/shipping', [AdminController::class, 'saveShipping']);
             Route::get('/quote-requests', [AdminController::class, 'quoteRequests']);

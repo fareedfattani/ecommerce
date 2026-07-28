@@ -17,6 +17,7 @@ import Login from './admin/Login';
 import Dashboard from './admin/Dashboard';
 import ResourceManager, { OrderDetail, Orders, ProductFormPage, resourceConfigs } from './admin/ResourceManager';
 import Settings from './admin/Settings';
+import Backup from './admin/Backup';
 import DeliveryCharges from './admin/DeliveryCharges';
 import QuoteRequests from './admin/QuoteRequests';
 import PushNotifications from './admin/PushNotifications';
@@ -52,6 +53,7 @@ function App() {
                     <Route path="delivery-charges" element={<DeliveryCharges />} />
                     <Route path="quote-requests" element={<QuoteRequests />} />
                     <Route path="settings" element={<Settings />} />
+                    <Route path="backup" element={<Backup />} />
                 </Route>
             </Routes>
         </CartProvider></StoreProvider></AuthProvider>

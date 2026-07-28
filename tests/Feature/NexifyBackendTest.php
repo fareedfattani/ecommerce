@@ -18,6 +18,8 @@ class NexifyBackendTest extends TestCase
         Product::create(['category_id'=>$category->id,'brand_id'=>$brand->id,'name'=>'Hidden Laptop','slug'=>'hidden-laptop','sku'=>'H-1','price'=>90000,'stock'=>2,'is_active'=>false]);
 
         $this->getJson('/api/products?category=laptops&search=Active')->assertOk()->assertJsonCount(1,'data')->assertJsonPath('data.0.slug','active-laptop');
+        Product::create(['category_id'=>$category->id,'brand_id'=>$brand->id,'name'=>'Budget Laptop','slug'=>'budget-laptop','sku'=>'B-1','price'=>5500,'stock'=>2,'is_active'=>true]);
+        $this->getJson('/api/products?min_price=5000&max_price=6000')->assertOk()->assertJsonCount(1,'data')->assertJsonPath('data.0.slug','budget-laptop');
         $this->getJson('/api/products/active-laptop')->assertOk()->assertJsonPath('product.sku','A-1');
         $this->getJson('/api/storefront')->assertOk()->assertJsonStructure(['settings','categories','brands','banners','featured_products','sale_products','testimonials','faqs','latest_posts']);
     }

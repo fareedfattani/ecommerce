@@ -1,4 +1,4 @@
-import { BarChart3, Bell, BookOpen, ChevronLeft, ClipboardList, FileText, HelpCircle, Image, Layers3, LogOut, Menu, MessageSquareQuote, Package, PanelsTopLeft, Settings, ShoppingCart, Tags, TicketPercent, Truck, Users, X } from 'lucide-react';
+import { Archive, BarChart3, Bell, BookOpen, ChevronLeft, ClipboardList, FileText, HelpCircle, Image, Layers3, LogOut, Menu, MessageSquareQuote, Package, PanelsTopLeft, Settings, ShoppingCart, Tags, TicketPercent, Truck, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Loading } from '../components/Common';
@@ -9,7 +9,7 @@ const links = [
     ['Brands', '/cp/brands', Tags], ['Orders', '/cp/orders', ShoppingCart], ['Quote requests', '/cp/quote-requests', ClipboardList], ['Delivery charges', '/cp/delivery-charges', Truck], ['Coupons', '/cp/coupons', TicketPercent], ['Posts', '/cp/posts', BookOpen],
     ['Pages', '/cp/pages', FileText], ['Banners', '/cp/banners', Image], ['FAQs', '/cp/faqs', HelpCircle],
     ['Testimonials', '/cp/testimonials', MessageSquareQuote], ['Subscribers', '/cp/subscribers', Users],
-    ['Push alerts', '/cp/push-notifications', Bell], ['Settings', '/cp/settings', Settings],
+    ['Push alerts', '/cp/push-notifications', Bell], ['Settings', '/cp/settings', Settings], ['Backup', '/cp/backup', Archive],
 ];
 
 export function ProtectedAdmin() {

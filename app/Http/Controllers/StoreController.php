@@ -61,12 +61,12 @@ class StoreController extends Controller
         }
         $q->when($data['category']??null, fn($q,$v)=>$q->whereHas('category',fn($x)=>$x->where('slug',$v)));
         $q->when($data['brand']??null, fn($q,$v)=>$q->whereHas('brand',fn($x)=>$x->where('slug',$v)));
-        $effectivePrice='CAST(CASE WHEN is_sale = 1 AND sale_price IS NOT NULL THEN sale_price ELSE price END AS REAL)';
+        $effectivePrice='CASE WHEN is_sale = 1 AND sale_price IS NOT NULL THEN sale_price ELSE price END';
         if(array_key_exists('min_price',$data) && $data['min_price']!==null && $data['min_price']!=='') {
-            $q->whereRaw("{$effectivePrice} >= CAST(? AS REAL)",[(float)$data['min_price']]);
+            $q->whereRaw("({$effectivePrice}) >= ?",[(float)$data['min_price']]);
         }
         if(array_key_exists('max_price',$data) && $data['max_price']!==null && $data['max_price']!=='') {
-            $q->whereRaw("{$effectivePrice} <= CAST(? AS REAL)",[(float)$data['max_price']]);
+            $q->whereRaw("({$effectivePrice}) <= ?",[(float)$data['max_price']]);
         }
         $q->when(($data['sale']??null)==='1', fn($q)=>$q->where('is_sale',true)->whereNotNull('sale_price'));
         match($data['sort']??'newest') {
