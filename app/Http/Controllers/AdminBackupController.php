@@ -159,25 +159,123 @@ class AdminBackupController extends Controller
 
     private function dumpMysqlDatabase(array $connection, string $path): void
     {
-        $command = [
-            'mysqldump',
-            '--host='.$connection['host'],
-            '--port='.$connection['port'],
-            '--user='.$connection['username'],
-            '--single-transaction',
-            '--quick',
-            '--lock-tables=false',
-            '--result-file='.$path,
-            $connection['database'],
-        ];
+        $binary = $this->mysqldumpBinary();
+        if ($binary) {
+            $command = [
+                $binary,
+                '--host='.(string) $connection['host'],
+                '--port='.(string) ($connection['port'] ?: 3306),
+                '--user='.(string) $connection['username'],
+                '--single-transaction',
+                '--quick',
+                '--lock-tables=false',
+                '--no-tablespaces',
+                (string) $connection['database'],
+            ];
 
-        $result = Process::env(['MYSQL_PWD' => (string) ($connection['password'] ?? '')])
-            ->timeout(600)
-            ->run($command);
+            $result = Process::env(['MYSQL_PWD' => (string) ($connection['password'] ?? '')])
+                ->timeout(600)
+                ->run($command);
 
-        if (! $result->successful() || ! is_file($path) || filesize($path) === 0) {
+            $output = $result->output();
+            if ($output !== '') {
+                File::put($path, $output);
+            }
+
+            if (is_file($path) && filesize($path) > 0) {
+                return;
+            }
+        }
+
+        $this->dumpMysqlDatabaseWithPhp($path);
+
+        if (! is_file($path) || filesize($path) === 0) {
             File::delete($path);
-            abort(500, trim($result->errorOutput() ?: 'Database backup failed.'));
+            abort(500, 'Database backup failed.');
+        }
+    }
+
+    private function mysqldumpBinary(): ?string
+    {
+        foreach (['/usr/bin/mysqldump', '/usr/local/bin/mysqldump'] as $binary) {
+            if (is_file($binary) && is_executable($binary)) {
+                return $binary;
+            }
+        }
+
+        return null;
+    }
+
+    private function dumpMysqlDatabaseWithPhp(string $path): void
+    {
+        $pdo = DB::connection()->getPdo();
+        $tables = collect(DB::select('SHOW FULL TABLES'))
+            ->map(function ($row) {
+                $values = array_values((array) $row);
+
+                return [
+                    'name' => (string) ($values[0] ?? ''),
+                    'type' => strtoupper((string) ($values[1] ?? 'BASE TABLE')),
+                ];
+            })
+            ->filter(fn (array $table) => $table['name'] !== '' && preg_match('/^[A-Za-z0-9_]+$/', $table['name']))
+            ->values();
+
+        $handle = fopen($path, 'w');
+        if ($handle === false) {
+            abort(500, 'Could not write database backup file.');
+        }
+
+        try {
+            fwrite($handle, "-- Nexify SQL backup\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n");
+
+            foreach ($tables as $table) {
+                $name = $table['name'];
+                $quoted = '`'.str_replace('`', '``', $name).'`';
+                $create = DB::selectOne("SHOW CREATE TABLE {$quoted}");
+                $createSql = is_object($create)
+                    ? ($create->{'Create Table'} ?? $create->{'Create View'} ?? null)
+                    : null;
+
+                if (! is_string($createSql) || $createSql === '') {
+                    continue;
+                }
+
+                fwrite($handle, "DROP TABLE IF EXISTS {$quoted};\n{$createSql};\n\n");
+
+                if ($table['type'] !== 'BASE TABLE') {
+                    continue;
+                }
+
+                $rows = DB::table($name)->get();
+                foreach ($rows->chunk(100) as $chunk) {
+                    $lines = [];
+                    foreach ($chunk as $row) {
+                        $values = [];
+                        foreach ((array) $row as $value) {
+                            if ($value === null) {
+                                $values[] = 'NULL';
+                            } elseif (is_bool($value)) {
+                                $values[] = $value ? '1' : '0';
+                            } elseif (is_int($value) || is_float($value)) {
+                                $values[] = (string) $value;
+                            } else {
+                                $values[] = $pdo->quote((string) $value);
+                            }
+                        }
+                        $lines[] = '('.implode(',', $values).')';
+                    }
+                    if ($lines) {
+                        fwrite($handle, "INSERT INTO {$quoted} VALUES ".implode(",\n", $lines).";\n");
+                    }
+                }
+
+                fwrite($handle, "\n");
+            }
+
+            fwrite($handle, "SET FOREIGN_KEY_CHECKS=1;\n");
+        } finally {
+            fclose($handle);
         }
     }
 

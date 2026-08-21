@@ -18,16 +18,42 @@ export default function Backup() {
 
     useEffect(() => { loadInfo(); }, []);
 
-    const downloadFile = (url) => {
+    const downloadFile = async (url, fallbackName) => {
         setBusy('download');
-        setStatus('Download started. Check your browser downloads.');
-        const link = document.createElement('a');
-        link.href = `/api${url}`;
-        link.rel = 'noopener';
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.setTimeout(() => setBusy(''), 1500);
+        setStatus('Preparing download…');
+        try {
+            const response = await fetch(`/api${url}`, {
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+            });
+            if (!response.ok) {
+                let message = `Download failed (${response.status}).`;
+                const type = response.headers.get('content-type') || '';
+                if (type.includes('json')) {
+                    const data = await response.json();
+                    message = data.message || message;
+                }
+                setStatus(message);
+                return;
+            }
+            const blob = await response.blob();
+            const disposition = response.headers.get('content-disposition') || '';
+            const match = disposition.match(/filename="?([^"]+)"?/i);
+            const filename = match?.[1] || fallbackName;
+            const objectUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = objectUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(objectUrl);
+            setStatus('Download started.');
+        } catch (err) {
+            setStatus(err?.message || 'Download failed.');
+        } finally {
+            setBusy('');
+        }
     };
 
     const restoreDatabase = async (e) => {
@@ -87,7 +113,7 @@ export default function Backup() {
                         <div><span>Estimated size</span><strong>{info?.database?.size || '—'}</strong></div>
                     </div>
                     <div className="backup-actions">
-                        <button type="button" className="btn" disabled={!!busy} onClick={() => downloadFile('/cp/backup/database/download')}>
+                        <button type="button" className="btn" disabled={!!busy} onClick={() => downloadFile('/cp/backup/database/download', `database-${new Date().toISOString().slice(0, 10)}.sql`)}>
                             <Download /> {busy === 'download' ? 'Preparing…' : 'Download database (.sql)'}
                         </button>
                     </div>
@@ -117,7 +143,7 @@ export default function Backup() {
                         <div><span>Estimated size</span><strong>{info?.storage?.size || '—'}</strong></div>
                     </div>
                     <div className="backup-actions">
-                        <button type="button" className="btn" disabled={!!busy} onClick={() => downloadFile('/cp/backup/storage/download')}>
+                        <button type="button" className="btn" disabled={!!busy} onClick={() => downloadFile('/cp/backup/storage/download', `storage-${new Date().toISOString().slice(0, 10)}.zip`)}>
                             <Download /> {busy === 'download' ? 'Preparing…' : 'Download storage (.zip)'}
                         </button>
                     </div>
