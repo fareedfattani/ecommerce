@@ -18,27 +18,16 @@ export default function Backup() {
 
     useEffect(() => { loadInfo(); }, []);
 
-    const downloadFile = async (url, fallbackName) => {
+    const downloadFile = (url) => {
         setBusy('download');
-        setStatus('');
-        try {
-            const response = await api.get(url, { responseType: 'blob' });
-            const disposition = response.headers['content-disposition'] || '';
-            const match = disposition.match(/filename="?([^"]+)"?/i);
-            const filename = match?.[1] || fallbackName;
-            const blob = new Blob([response.data]);
-            const objectUrl = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = objectUrl;
-            link.download = filename;
-            link.click();
-            URL.revokeObjectURL(objectUrl);
-            setStatus('Download started.');
-        } catch (err) {
-            setStatus(messageFrom(err));
-        } finally {
-            setBusy('');
-        }
+        setStatus('Download started. Check your browser downloads.');
+        const link = document.createElement('a');
+        link.href = `/api${url}`;
+        link.rel = 'noopener';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => setBusy(''), 1500);
     };
 
     const restoreDatabase = async (e) => {
@@ -98,7 +87,7 @@ export default function Backup() {
                         <div><span>Estimated size</span><strong>{info?.database?.size || '—'}</strong></div>
                     </div>
                     <div className="backup-actions">
-                        <button type="button" className="btn" disabled={!!busy} onClick={() => downloadFile('/cp/backup/database/download', `database-${new Date().toISOString().slice(0, 10)}.sql`)}>
+                        <button type="button" className="btn" disabled={!!busy} onClick={() => downloadFile('/cp/backup/database/download')}>
                             <Download /> {busy === 'download' ? 'Preparing…' : 'Download database (.sql)'}
                         </button>
                     </div>
@@ -128,7 +117,7 @@ export default function Backup() {
                         <div><span>Estimated size</span><strong>{info?.storage?.size || '—'}</strong></div>
                     </div>
                     <div className="backup-actions">
-                        <button type="button" className="btn" disabled={!!busy} onClick={() => downloadFile('/cp/backup/storage/download', `storage-${new Date().toISOString().slice(0, 10)}.zip`)}>
+                        <button type="button" className="btn" disabled={!!busy} onClick={() => downloadFile('/cp/backup/storage/download')}>
                             <Download /> {busy === 'download' ? 'Preparing…' : 'Download storage (.zip)'}
                         </button>
                     </div>

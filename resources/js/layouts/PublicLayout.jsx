@@ -12,28 +12,77 @@ const serviceLinks = [
     ['Networking services', '/page/networking-services'],
 ];
 
-export default function PublicLayout() {
-    const store = useStore(), cart = useCart(), settings = store.settings || {};
-    const [menu, setMenu] = useState(false), [search, setSearch] = useState('');
-    const [servicesOpen, setServicesOpen] = useState(false);
-    const navigate = useNavigate();
-    const location = useLocation();
-    const servicesRef = useRef(null);
+const laptopCategoryNames = ['New Laptops', 'Gaming Laptops', 'Used Laptops'];
+const topCategoryNames = ['Mobile Phones', 'Network Equipment', 'Accessories'];
 
-    const closeMenu = () => { setMenu(false); setServicesOpen(false); };
-    const submit = (e) => { e.preventDefault(); if (search.trim()) navigate(`/shop?q=${encodeURIComponent(search.trim())}`); closeMenu(); };
-    const socials = ['facebook', 'instagram', 'youtube'];
-    const servicesActive = serviceLinks.some(([, path]) => location.pathname === path);
+function matchCategory(categories, name) {
+    const needle = name.toLowerCase();
+    return categories.find((c) => String(c.name || '').toLowerCase() === needle)
+        || categories.find((c) => String(c.slug || '').toLowerCase().includes(needle.replace(/\s+/g, '-')));
+}
 
-    useEffect(() => { setServicesOpen(false); setMenu(false); }, [location.pathname]);
+function categoryHref(item) {
+    return `/shop?category=${item.slug || item.id}`;
+}
+
+function NavDropdown({ label, open, setOpen, active, links, current, onNavigate }) {
+    const ref = useRef(null);
 
     useEffect(() => {
         const onPointer = (e) => {
-            if (servicesRef.current && !servicesRef.current.contains(e.target)) setServicesOpen(false);
+            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
         };
         document.addEventListener('pointerdown', onPointer);
         return () => document.removeEventListener('pointerdown', onPointer);
-    }, []);
+    }, [setOpen]);
+
+    if (!links.length) return null;
+
+    return (
+        <div className={`nav-dropdown ${open ? 'open' : ''} ${active ? 'active' : ''}`} ref={ref}>
+            <button type="button" className="nav-dropdown-toggle" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen((v) => !v)}>
+                {label} <ChevronDown />
+            </button>
+            <div className="nav-dropdown-menu" role="menu">
+                {links.map(([itemLabel, path]) => (
+                    <Link key={path} to={path} role="menuitem" className={current === path ? 'active' : ''} onClick={onNavigate}>{itemLabel}</Link>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+export default function PublicLayout() {
+    const store = useStore(), cart = useCart(), settings = store.settings || {};
+    const categories = store.categories || [];
+    const [menu, setMenu] = useState(false), [search, setSearch] = useState('');
+    const [laptopsOpen, setLaptopsOpen] = useState(false);
+    const [servicesOpen, setServicesOpen] = useState(false);
+    const navigate = useNavigate();
+    const location = useLocation();
+    const current = `${location.pathname}${location.search}`;
+
+    const laptopLinks = laptopCategoryNames
+        .map((name) => matchCategory(categories, name))
+        .filter(Boolean)
+        .map((item) => [item.name, categoryHref(item)]);
+
+    const topCategoryLinks = topCategoryNames
+        .map((name) => matchCategory(categories, name))
+        .filter(Boolean);
+
+    const closeMenu = () => { setMenu(false); setLaptopsOpen(false); setServicesOpen(false); };
+    const submit = (e) => { e.preventDefault(); if (search.trim()) navigate(`/shop?q=${encodeURIComponent(search.trim())}`); closeMenu(); };
+    const socials = ['facebook', 'instagram', 'youtube'];
+    const servicesActive = serviceLinks.some(([, path]) => location.pathname === path);
+    const laptopsActive = laptopLinks.some(([, path]) => current === path);
+
+    useEffect(() => { setLaptopsOpen(false); setServicesOpen(false); setMenu(false); }, [location.pathname, location.search]);
+
+    const shopFooterLinks = [
+        ...laptopLinks,
+        ...topCategoryLinks.map((c) => [c.name, categoryHref(c)]),
+    ];
 
     return <div className="site">
         <div className="announcement"><span>{settings.announcement || 'Shop smarter. Nationwide delivery. Pay on delivery.'}</span><Link to="/contact">Need help? {settings.phone}</Link></div>
@@ -55,17 +104,32 @@ export default function PublicLayout() {
                 <div className="nav-links">
                     <NavLink to="/" end onClick={closeMenu}>Home</NavLink>
                     <NavLink to="/shop" onClick={closeMenu}>Shop all</NavLink>
-                    {store.categories.slice(0, 4).map((item) => <Link key={item.id || item.slug} to={`/shop?category=${item.slug || item.id}`} onClick={closeMenu}>{item.name}</Link>)}
-                    <div className={`nav-dropdown ${servicesOpen ? 'open' : ''} ${servicesActive ? 'active' : ''}`} ref={servicesRef}>
-                        <button type="button" className="nav-dropdown-toggle" aria-expanded={servicesOpen} aria-haspopup="true" onClick={() => setServicesOpen((v) => !v)}>
-                            Services <ChevronDown />
-                        </button>
-                        <div className="nav-dropdown-menu" role="menu">
-                            {serviceLinks.map(([label, path]) => (
-                                <Link key={path} to={path} role="menuitem" className={location.pathname === path ? 'active' : ''} onClick={closeMenu}>{label}</Link>
-                            ))}
-                        </div>
-                    </div>
+                    <NavDropdown
+                        label="Laptops"
+                        open={laptopsOpen}
+                        setOpen={setLaptopsOpen}
+                        active={laptopsActive}
+                        links={laptopLinks}
+                        current={current}
+                        onNavigate={closeMenu}
+                    />
+                    {topCategoryLinks.map((item) => {
+                        const href = categoryHref(item);
+                        return (
+                            <Link key={item.id || item.slug} to={href} className={current === href ? 'active' : ''} onClick={closeMenu}>
+                                {item.name}
+                            </Link>
+                        );
+                    })}
+                    <NavDropdown
+                        label="Services"
+                        open={servicesOpen}
+                        setOpen={setServicesOpen}
+                        active={servicesActive}
+                        links={serviceLinks}
+                        current={location.pathname}
+                        onNavigate={closeMenu}
+                    />
                     <NavLink to="/blog" onClick={closeMenu}>Guides</NavLink>
                     <NavLink to="/contact" onClick={closeMenu}>Contact</NavLink>
                 </div>
@@ -76,7 +140,11 @@ export default function PublicLayout() {
         <footer className="footer">
             <div className="shell footer-grid">
                 <div><Link className="logo footer-logo" to="/"><span>N</span><b>{settings.site_name || 'Nexify'}</b></Link><p>{settings.footer_text || 'Technology made simple, reliable and accessible — delivered across Pakistan.'}</p><div className="socials">{socials.map((key) => settings[key] && <a key={key} href={settings[key]} aria-label={key}><Globe /></a>)}</div></div>
-                <div><h3>Shop</h3><Link to="/shop">All products</Link>{store.categories.slice(0, 4).map((c) => <Link key={c.id || c.slug} to={`/shop?category=${c.slug || c.id}`}>{c.name}</Link>)}</div>
+                <div>
+                    <h3>Shop</h3>
+                    <Link to="/shop">All products</Link>
+                    {shopFooterLinks.map(([label, path]) => <Link key={path} to={path}>{label}</Link>)}
+                </div>
                 <div><h3>Services</h3><Link to="/page/annual-maintenance-contracts">Annual maintenance contracts (AMC)</Link><Link to="/page/networking-services">Networking services</Link></div>
                 <div><h3>Company</h3><Link to="/about">About us</Link><Link to="/blog">Buying guides</Link><Link to="/contact">Contact</Link><Link to="/page/privacy-policy">Privacy policy</Link></div>
                 <div><h3>Stay connected</h3><p>{settings.address}</p><a href={`mailto:${settings.email}`}><Mail /> {settings.email}</a><a href={`https://wa.me/${String(settings.whatsapp || '').replace(/\D/g, '')}`}><img className="whatsapp-inline" src="/whatsapp.svg" alt="" /> WhatsApp support</a></div>

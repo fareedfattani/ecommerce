@@ -36,6 +36,8 @@ class AdminBackupController extends Controller
 
     public function downloadDatabase(): BinaryFileResponse
     {
+        set_time_limit(0);
+
         $connection = $this->connection();
         $driver = $connection['driver'] ?? 'mysql';
 
@@ -89,6 +91,8 @@ class AdminBackupController extends Controller
 
     public function downloadStorage(): BinaryFileResponse
     {
+        set_time_limit(0);
+
         $source = storage_path('app/public');
         if (! is_dir($source)) {
             abort(404, 'Storage folder was not found.');
@@ -163,6 +167,7 @@ class AdminBackupController extends Controller
             '--single-transaction',
             '--quick',
             '--lock-tables=false',
+            '--result-file='.$path,
             $connection['database'],
         ];
 
@@ -170,13 +175,7 @@ class AdminBackupController extends Controller
             ->timeout(600)
             ->run($command);
 
-        if (! $result->successful()) {
-            abort(500, trim($result->errorOutput() ?: 'Database backup failed.'));
-        }
-
-        File::put($path, $result->output());
-
-        if (! is_file($path) || filesize($path) === 0) {
+        if (! $result->successful() || ! is_file($path) || filesize($path) === 0) {
             File::delete($path);
             abort(500, trim($result->errorOutput() ?: 'Database backup failed.'));
         }
@@ -222,6 +221,11 @@ class AdminBackupController extends Controller
         foreach ($iterator as $item) {
             $relative = Str::after($item->getPathname(), $source);
             if ($relative === '' || str_contains($relative, '..')) {
+                continue;
+            }
+
+            $top = explode(DIRECTORY_SEPARATOR, str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $relative))[0];
+            if ($top === 'backups') {
                 continue;
             }
 
